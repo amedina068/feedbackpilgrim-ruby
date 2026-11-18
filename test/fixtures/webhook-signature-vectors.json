@@ -1,0 +1,68 @@
+{
+    "algorithm": "HMAC-SHA256 hex digest of the timestamp header, a \".\" and the raw request body, with the signing secret of the webhook as the key. The header is X-FeedbackPilgrim-Signature-V2. The timestamp is the Unix time in seconds, as a string, from X-FeedbackPilgrim-Timestamp. Verify the raw bytes of the body. The app encodes the body with PHP json_encode() and no flags, so \"/\" is \"\\/\" and each character that is not ASCII is a \\u escape. Reject a timestamp that is more than 300 seconds from the current time.",
+    "source": "app/Jobs/DeliverWebhook.php handle()",
+    "signature_header": "X-FeedbackPilgrim-Signature-V2",
+    "timestamp_header": "X-FeedbackPilgrim-Timestamp",
+    "delivery_header": "X-FeedbackPilgrim-Delivery",
+    "event_header": "X-FeedbackPilgrim-Event",
+    "tolerance_seconds": 300,
+    "secret": "test-webhook-secret-0123456789abcdefghij",
+    "cases": [
+        {
+            "name": "post created without a stage",
+            "event": "post.created",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6",
+            "valid": true
+        },
+        {
+            "name": "status change with a slash and accents in the text",
+            "event": "post.status_changed",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.status_changed\",\"data\":{\"id\":42,\"title\":\"Export to CSV\\/Excel\",\"content\":\"Caf\\u00e9 menus need it.\",\"status\":\"in_progress\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":4,\"name\":\"In Progress\",\"type\":\"active\"}}}",
+            "signature": "96df68a2bd1f6f0e3ba5e5ff4ba7289f61540901361cf5669819fb5588693350",
+            "valid": true
+        },
+        {
+            "name": "post completed",
+            "event": "post.completed",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.completed\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"completed\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":6,\"name\":\"Shipped\",\"type\":\"complete\"}}}",
+            "signature": "ddad1d157bc61d87dc5b612ed3505923ffd776745c0508631d2621a8bb53e7f2",
+            "valid": true
+        },
+        {
+            "name": "a changed body does not match the signature",
+            "event": "post.created",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"completed\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6",
+            "valid": false
+        },
+        {
+            "name": "a changed timestamp does not match the signature",
+            "event": "post.created",
+            "timestamp": "1763456790",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6",
+            "valid": false
+        },
+        {
+            "name": "the signature of the body only does not match",
+            "event": "post.created",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "c4b9b00ddf4d545bfefecbc6692c961cdc90afe2a37945cc7cfb82f5ae0b5207",
+            "valid": false
+        },
+        {
+            "name": "a body encoded again with other JSON flags does not match",
+            "event": "post.status_changed",
+            "timestamp": "1763456789",
+            "body": "{\"event\":\"post.status_changed\",\"data\":{\"id\":42,\"title\":\"Export to CSV/Excel\",\"content\":\"Café menus need it.\",\"status\":\"in_progress\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":4,\"name\":\"In Progress\",\"type\":\"active\"}}}",
+            "signature": "96df68a2bd1f6f0e3ba5e5ff4ba7289f61540901361cf5669819fb5588693350",
+            "valid": false
+        }
+    ]
+}

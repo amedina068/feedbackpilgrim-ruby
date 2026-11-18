@@ -1,0 +1,13 @@
+# Feedback Pilgrim reads url, token, identity_secret and webhook_secret from
+# Rails.application.credentials.feedbackpilgrim. Without credentials, it reads
+# FEEDBACKPILGRIM_URL, FEEDBACKPILGRIM_TOKEN, FEEDBACKPILGRIM_IDENTITY_SECRET and
+# FEEDBACKPILGRIM_WEBHOOK_SECRET.
+FeedbackPilgrim.configure do |config|
+  # config.url = "https://feedback.example.com"
+
+  # The seconds to wait for a connection and for a response.
+  # config.timeout = 30
+
+  # The retries after a 429, a 5xx on an idempotent request, or a connection error.
+  # config.max_retries = 2
+end

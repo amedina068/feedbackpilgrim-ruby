@@ -1,0 +1,44 @@
+{
+    "algorithm": "Deprecated. HMAC-SHA256 hex digest of the raw request body, with the signing secret of the webhook as the key. The header is X-FeedbackPilgrim-Signature. The app sends it for one more release. Verify the raw bytes of the body. The app encodes the body with PHP json_encode() and no flags, so \"/\" is \"\\/\" and each character that is not ASCII is a \\u escape.",
+    "source": "app/Jobs/DeliverWebhook.php handle()",
+    "signature_header": "X-FeedbackPilgrim-Signature",
+    "event_header": "X-FeedbackPilgrim-Event",
+    "secret": "test-webhook-secret-0123456789abcdefghij",
+    "cases": [
+        {
+            "name": "post created without a stage",
+            "event": "post.created",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "c4b9b00ddf4d545bfefecbc6692c961cdc90afe2a37945cc7cfb82f5ae0b5207",
+            "valid": true
+        },
+        {
+            "name": "status change with a slash and accents in the text",
+            "event": "post.status_changed",
+            "body": "{\"event\":\"post.status_changed\",\"data\":{\"id\":42,\"title\":\"Export to CSV\\/Excel\",\"content\":\"Caf\\u00e9 menus need it.\",\"status\":\"in_progress\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":4,\"name\":\"In Progress\",\"type\":\"active\"}}}",
+            "signature": "18896ce6ebc228b1be159145aa471414e862d539f98406151aacda5aa8d7ca2a",
+            "valid": true
+        },
+        {
+            "name": "post completed",
+            "event": "post.completed",
+            "body": "{\"event\":\"post.completed\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"completed\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":6,\"name\":\"Shipped\",\"type\":\"complete\"}}}",
+            "signature": "4c9bd0cdaf03a390d3f724f9bc53ad83b07a9ed1d60dc5208d5d11eb5cd2150c",
+            "valid": true
+        },
+        {
+            "name": "a changed body does not match the signature",
+            "event": "post.created",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"completed\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "signature": "c4b9b00ddf4d545bfefecbc6692c961cdc90afe2a37945cc7cfb82f5ae0b5207",
+            "valid": false
+        },
+        {
+            "name": "a body encoded again with other JSON flags does not match",
+            "event": "post.status_changed",
+            "body": "{\"event\":\"post.status_changed\",\"data\":{\"id\":42,\"title\":\"Export to CSV/Excel\",\"content\":\"Café menus need it.\",\"status\":\"in_progress\",\"board_id\":1,\"contact_id\":7,\"stage\":{\"id\":4,\"name\":\"In Progress\",\"type\":\"active\"}}}",
+            "signature": "18896ce6ebc228b1be159145aa471414e862d539f98406151aacda5aa8d7ca2a",
+            "valid": false
+        }
+    ]
+}

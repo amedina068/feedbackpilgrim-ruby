@@ -1,0 +1,37 @@
+{
+    "algorithm": "HMAC-SHA256 hex digest of the normalized email, with the identity secret of the client as the key. Normalize the email with PHP trim() and strtolower(): trim removes \" \", \"\\t\", \"\\n\", \"\\r\", \"\\0\" and \"\\x0B\" at both ends, and strtolower changes the ASCII letters A-Z only.",
+    "source": "app/Models/Client.php identityHashFor()",
+    "identity_secret": "test-identity-secret-0123456789abcdef",
+    "cases": [
+        {
+            "name": "plain email",
+            "email": "jane@example.com",
+            "normalized_email": "jane@example.com",
+            "user_hash": "cd030afda18c4024c95fb274f9ac2441ebc165922a7211ddba16910915227ea4"
+        },
+        {
+            "name": "uppercase and spaces are normalized",
+            "email": "  Jane.Doe@Example.COM ",
+            "normalized_email": "jane.doe@example.com",
+            "user_hash": "e647c020d03da660c05f059fa16b4dc6386f1d335de6b44cca7db08e9bbdc73d"
+        },
+        {
+            "name": "tab and newline are trimmed",
+            "email": "\tjane@example.com\n",
+            "normalized_email": "jane@example.com",
+            "user_hash": "cd030afda18c4024c95fb274f9ac2441ebc165922a7211ddba16910915227ea4"
+        },
+        {
+            "name": "only ASCII letters change case",
+            "email": "JOSÉ@example.com",
+            "normalized_email": "josÉ@example.com",
+            "user_hash": "e4153a414cd98d5ee1e4900718f48510e64d1f0bb02d4dda7591649139643e63"
+        },
+        {
+            "name": "a plus address stays as it is",
+            "email": "Jane+Feedback@example.com",
+            "normalized_email": "jane+feedback@example.com",
+            "user_hash": "a371b0b1979bd2a82944d5728d1bd7e852c0257715659ad760bc366cdc89f7b3"
+        }
+    ]
+}

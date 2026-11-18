@@ -1,0 +1,205 @@
+module FeedbackPilgrim
+  VERSION: String
+
+  type id = Integer | String
+
+  def self.configure: () { (Configuration) -> void } -> void
+  def self.config: () -> Configuration
+  def self.client: () -> Client
+  def self.reset!: () -> void
+  def self.posts: () -> Posts
+  def self.release_notes: () -> ReleaseNotes
+  def self.contacts: () -> Contacts
+  def self.testimonials: () -> Testimonials
+  def self.tags: () -> Tags
+  def self.sign_in_url: (email: String, ?name: String?, ?mrr: Numeric?, ?ltv: Numeric?, ?avatar: String?, ?custom_fields: Hash[Symbol | String, untyped]) -> String?
+  def self.identity_hash: (String email, ?secret: String?) -> String
+
+  class Configuration
+    attr_writer url: String?
+    attr_writer token: String?
+    attr_writer identity_secret: String?
+    attr_writer webhook_secret: String?
+    attr_accessor timeout: Numeric
+    attr_accessor max_retries: Integer
+
+    def initialize: () -> void
+    def url: () -> String?
+    def token: () -> String?
+    def identity_secret: () -> String?
+    def webhook_secret: () -> String?
+    def merge!: (Hash[Symbol | String, untyped]? settings) -> self
+    def to_h: () -> { url: String?, token: String?, timeout: Numeric, max_retries: Integer }
+  end
+
+  class Client
+    class Response
+      attr_reader status: Integer
+      attr_reader body: untyped
+
+      def self.new: (status: Integer, body: untyped) -> Response
+    end
+
+    BEFORE_SEND: Array[singleton(Exception)]
+    AFTER_SEND: Array[singleton(Exception)]
+    BASE_DELAY: Float
+    MAX_DELAY: Integer
+    MAX_RETRY_AFTER: Integer
+
+    attr_reader url: String
+    attr_reader timeout: Numeric
+    attr_reader max_retries: Integer
+
+    def initialize: (?url: String?, ?token: String?, ?timeout: Numeric, ?max_retries: Integer) -> void
+    def posts: () -> Posts
+    def release_notes: () -> ReleaseNotes
+    def contacts: () -> Contacts
+    def testimonials: () -> Testimonials
+    def tags: () -> Tags
+    def sign_in_url: (email: String, ?name: String?, ?mrr: Numeric?, ?ltv: Numeric?, ?avatar: String?, ?custom_fields: Hash[Symbol | String, untyped]) -> String?
+    def request: (Symbol method, String path, ?query: Hash[Symbol, untyped]?, ?json: untyped, ?idempotent: bool) -> Response
+  end
+
+  class Record
+    def self.wrap: (untyped value) -> untyped
+    def initialize: (Hash[Symbol | String, untyped] attributes) -> void
+    def []: (Symbol | String key) -> untyped
+    def key?: (Symbol | String key) -> bool
+    def to_h: () -> Hash[String, untyped]
+    def ==: (untyped other) -> bool
+  end
+
+  class Page
+    include Enumerable[Record]
+
+    attr_reader records: Array[Record]
+    attr_reader meta: Record
+
+    def initialize: (Hash[String, untyped] body) { (Integer page) -> Page } -> void
+    def each: () { (Record) -> void } -> Array[Record]
+    def next_page?: () -> bool
+    def next_page: () -> Page?
+    def each_record: () { (Record) -> void } -> void
+                   | () -> Enumerator[Record, void]
+  end
+
+  module Identity
+    TRIM: Regexp
+
+    def self.digest: (String email, String? secret) -> String
+    def self.normalize: (String email) -> String
+  end
+
+  module Webhook
+    EVENT: String
+    DELIVERY: String
+    TIMESTAMP: String
+    SIGNATURE: String
+    TOLERANCE: Integer
+
+    class Event
+      attr_reader name: String
+      attr_reader data: Record
+      attr_reader delivery_id: String?
+      attr_reader timestamp: Time
+
+      def self.new: (name: String, data: Record, delivery_id: String?, timestamp: Time) -> Event
+    end
+
+    def self.valid?: (String body, signature: String?, timestamp: String | Integer | nil, ?secret: String?, ?tolerance: Integer, ?now: Time | Integer) -> bool
+    def self.verify: (String body, untyped headers, ?secret: String?, ?tolerance: Integer, ?now: Time | Integer) -> Event
+    def self.sign: (String | Integer | nil timestamp, String body, String secret) -> String
+  end
+
+  class Error < StandardError
+  end
+
+  class ConfigurationError < Error
+  end
+
+  class ConnectionError < Error
+  end
+
+  class ApiError < Error
+    attr_reader status: Integer
+    attr_reader body: untyped
+
+    def self.for: (Net::HTTPResponse response) -> ApiError
+    def self.class_for: (Integer status) -> singleton(ApiError)
+    def initialize: (Net::HTTPResponse response, untyped body) -> void
+  end
+
+  class AuthenticationError < ApiError
+  end
+
+  class AuthorizationError < ApiError
+  end
+
+  class NotFoundError < ApiError
+  end
+
+  class MethodNotAllowedError < ApiError
+  end
+
+  class ServerError < ApiError
+  end
+
+  class ValidationError < ApiError
+    def errors: () -> Hash[String, Array[String]]
+  end
+
+  class RateLimitError < ApiError
+    def retry_after: () -> Integer?
+  end
+
+  class WebhookVerificationError < Error
+    attr_reader reason: :signature | :timestamp
+
+    def initialize: (:signature | :timestamp reason) -> void
+  end
+
+  class Resource
+    def initialize: (Client client) -> void
+  end
+
+  class Posts < Resource
+    def list: (?search: String?, ?status: String?, ?board_id: Integer?, ?tag: String?, ?published: bool?, ?sort_by: String?, ?sort_direction: String?, ?per_page: Integer?, ?page: Integer?) -> Page
+    def find: (id id) -> Record
+    def create: (title: String, content: String, ?status: String?, ?board_id: Integer?, ?tags: Array[Integer]?) -> Record
+    def update: (id id, ?title: String?, ?content: String?, ?status: String?, ?board_id: Integer?, ?tags: Array[Integer]?) -> Record
+  end
+
+  class ReleaseNotes < Resource
+    def list: (?search: String?, ?published: bool?, ?tag: String?, ?sort_by: String?, ?sort_direction: String?, ?per_page: Integer?, ?page: Integer?) -> Page
+    def find: (id id) -> Record
+    def create: (title: String, content: String, ?published: bool?, ?tags: Array[Integer]?) -> Record
+    def update: (id id, ?title: String?, ?content: String?, ?published: bool?, ?tags: Array[Integer]?) -> Record
+  end
+
+  class Contacts < Resource
+    class Saved < Record
+      def initialize: (Hash[String, untyped] attributes, created: bool) -> void
+      def created?: () -> bool
+    end
+
+    def list: (?search: String?, ?tag: String?, ?sort_by: String?, ?sort_direction: String?, ?per_page: Integer?, ?page: Integer?) -> Page
+    def find: (id id) -> Record
+    def upsert: (email: String, name: String, ?mrr: Numeric?, ?ltv: Numeric?, ?avatar: String?, ?tags: Array[Integer]?, ?custom_fields: Hash[Symbol | String, untyped]?) -> Saved
+    def update: (id id, ?name: String?, ?email: String?, ?mrr: Numeric?, ?ltv: Numeric?, ?avatar: String?, ?tags: Array[Integer]?) -> Record
+  end
+
+  class Testimonials < Resource
+    def list: (?approved: bool?, ?search: String?, ?rating: Integer?, ?sort_by: String?, ?sort_direction: String?, ?per_page: Integer?, ?page: Integer?) -> Page
+    def find: (id id) -> Record
+    def create: (description: String, username: String, ?rating: Integer?, ?contact_id: Integer?) -> Record
+    def update: (id id, ?description: String?, ?rating: Integer?, ?username: String?, ?approved_at: Time | String | nil) -> Record
+    def approve: (id id, ?at: Time | String) -> Record
+  end
+
+  class Tags < Resource
+    def list: (?search: String?, ?sort_by: String?, ?sort_direction: String?, ?per_page: Integer?, ?page: Integer?) -> Page
+    def create: (title: String) -> Record
+    def update: (id id, title: String) -> Record
+    def delete: (id id) -> nil
+  end
+end
