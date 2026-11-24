@@ -10,6 +10,7 @@ class FeedbackPilgrim::ConfigurationTest < FeedbackPilgrim::TestCase
 
   def teardown
     @saved.each { |name, value| value ? ENV[name] = value : ENV.delete(name) }
+    super
   end
 
   def test_defaults
