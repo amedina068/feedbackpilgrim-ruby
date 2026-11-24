@@ -126,4 +126,15 @@ class FeedbackPilgrim::ErrorsTest < FeedbackPilgrim::TestCase
 
     assert_raises(FeedbackPilgrim::ConnectionError) { client.posts.list }
   end
+
+  def test_a_connection_error_tells_if_it_occurred_before_the_send
+    { Errno::ECONNREFUSED => true, SocketError => true, Net::OpenTimeout => true,
+      Errno::ECONNRESET => false, Errno::EHOSTUNREACH => false, Net::ReadTimeout => false }.each do |cause, before_send|
+      WebMock.reset!
+      stub_api(:get, "/tags").to_raise(cause)
+
+      error = assert_raises(FeedbackPilgrim::ConnectionError) { client(max_retries: 0).tags.list }
+      assert_equal before_send, error.before_send?, cause.name
+    end
+  end
 end

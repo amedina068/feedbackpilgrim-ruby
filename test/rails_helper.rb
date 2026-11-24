@@ -43,7 +43,7 @@ end
 class FeedbackpilgrimWebhooksController < ActionController::API
   def create
     event = FeedbackPilgrim::Webhook.verify(request.raw_post, request.headers)
-    render plain: "#{event.name} #{event.delivery_id}"
+    render plain: "#{event.type} #{event.delivery_id}"
   rescue FeedbackPilgrim::WebhookVerificationError => error
     render plain: error.reason.to_s, status: :bad_request
   end

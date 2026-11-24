@@ -9,11 +9,15 @@ module FeedbackPilgrim
     # The status and the parsed body of one response.
     Response = Data.define(:status, :body)
 
-    # The request did not reach the server, so a retry cannot change data twice.
-    BEFORE_SEND = [ Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH, SocketError, Net::OpenTimeout ].freeze
+    # A DNS failure, a refused connection or a connect timeout. The server did
+    # not get the request, so a retry cannot change data twice.
+    BEFORE_SEND = [ SocketError, Errno::ECONNREFUSED, Net::OpenTimeout ].freeze
 
-    # The server possibly received the request.
-    AFTER_SEND = [ Net::ReadTimeout, Net::WriteTimeout, Errno::ECONNRESET, Errno::EPIPE, Errno::ETIMEDOUT, EOFError ].freeze
+    # The request got no response: the connection failed or timed out.
+    CONNECTION_ERRORS = [
+      *BEFORE_SEND, Errno::EHOSTUNREACH, Errno::ENETUNREACH,
+      Net::ReadTimeout, Net::WriteTimeout, Errno::ECONNRESET, Errno::EPIPE, Errno::ETIMEDOUT, EOFError
+    ].freeze
 
     BASE_DELAY = 0.5
     MAX_DELAY = 8
@@ -50,10 +54,10 @@ module FeedbackPilgrim
 
     # Sends one request to {url}/api/public/v1{path} and returns a Response.
     #
-    # Retries a 429 and a connection error that happened before the request
-    # reached the server. Retries a 5xx and a later connection error only when
-    # the request is idempotent. Each GET, PATCH and DELETE of the API is
-    # idempotent. A POST is not, unless the caller says so.
+    # Retries a 429 and a connection error before the send for each request,
+    # because the server did not do the request. Retries a 5xx, another
+    # connection error and a timeout only when the request is idempotent. Each GET, PATCH and DELETE of the API is idempotent. A POST is
+    # not, unless the caller says so.
     def request(method, path, query: nil, json: nil, idempotent: method != :post)
       attempt = 0
 
@@ -66,11 +70,12 @@ module FeedbackPilgrim
       rescue RateLimitError, ServerError => error
         raise unless attempt <= max_retries && retryable?(error, idempotent)
 
-        pause delay(attempt, error.is_a?(RateLimitError) ? error.retry_after : nil)
+        pause delay(attempt, error.retry_after)
         retry
-      rescue *BEFORE_SEND, *AFTER_SEND => error
-        unless attempt <= max_retries && (idempotent || BEFORE_SEND.any? { |kind| error.is_a?(kind) })
-          raise ConnectionError, "Feedback Pilgrim request failed: #{error.message}"
+      rescue *CONNECTION_ERRORS => error
+        before_send = BEFORE_SEND.any? { |kind| error.is_a?(kind) }
+        unless attempt <= max_retries && (idempotent || before_send)
+          raise ConnectionError.new("Feedback Pilgrim request failed: #{error.message}", before_send:)
         end
 
         pause delay(attempt)
@@ -115,10 +120,7 @@ module FeedbackPilgrim
       end
 
       def retryable?(error, idempotent)
-        case error
-        when RateLimitError then error.retry_after.nil? || error.retry_after <= MAX_RETRY_AFTER
-        when ServerError    then idempotent
-        end
+        (error.is_a?(RateLimitError) || idempotent) && (error.retry_after.nil? || error.retry_after <= MAX_RETRY_AFTER)
       end
 
       # Exponential backoff with jitter. A Retry-After value wins.

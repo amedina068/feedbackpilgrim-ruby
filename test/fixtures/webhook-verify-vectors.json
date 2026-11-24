@@ -1,0 +1,337 @@
+{
+    "description": "The result of the webhook verify function of each SDK. Give \"body\" as the raw body, \"headers\" as the request headers and \"now\" as the current Unix time. The tolerance is the default, 300 seconds. \"expect.valid\" true means that the function returns an event with this type, timestamp, delivery ID and data.id. \"expect.valid\" false means that the function raises the verification error with this reason.",
+    "source": "BRIEF.md, \"Webhook verification\"",
+    "secret": "test-webhook-secret-0123456789abcdefghij",
+    "tolerance_seconds": 300,
+    "cases": [
+        {
+            "name": "valid delivery",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "data_id": 42
+            }
+        },
+        {
+            "name": "missing delivery header gives a null delivery ID",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": null,
+                "data_id": 42
+            }
+        },
+        {
+            "name": "empty delivery header gives a null delivery ID",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": null,
+                "data_id": 42
+            }
+        },
+        {
+            "name": "uppercase hex signature is valid",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2D4194D96E8FBC9AFFC0FF86526BA3A073D622702E09B68608BBF1FC073688E6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "data_id": 42
+            }
+        },
+        {
+            "name": "spaces around the signature are ignored",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": " 2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6 "
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "data_id": 42
+            }
+        },
+        {
+            "name": "timestamp at the tolerance limit is valid",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763457089,
+            "expect": {
+                "valid": true,
+                "type": "post.created",
+                "timestamp": 1763456789,
+                "delivery_id": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "data_id": 42
+            }
+        },
+        {
+            "name": "missing signature header",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "empty signature header",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": ""
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "wrong signature",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "7d00e346cae4620e98c65df39fc30137d6277524490e621d91661ad2f65f7f05"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "signature that is not hex",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "deprecated body-only signature in the V2 header",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "c4b9b00ddf4d545bfefecbc6692c961cdc90afe2a37945cc7cfb82f5ae0b5207"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "missing timestamp header",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "empty timestamp header",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "timestamp that is not digits",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789a",
+                "X-FeedbackPilgrim-Signature-V2": "bcd716932e6d9c3c55290e8469003390ef56760f46d85590a3295c91fc13f5e3"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "timestamp with a plus sign",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "+1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "d4a9e2a0fba39da9cf6014b0c8e533a79fb8fc92be907f2e6ad70413ec2c640a"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "timestamp older than the tolerance",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763457090,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "timestamp newer than the tolerance",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "2d4194d96e8fbc9affc0ff86526ba3a073d622702e09b68608bbf1fc073688e6"
+            },
+            "now": 1763456488,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "missing timestamp comes before a wrong signature",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Signature-V2": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "timestamp"
+            }
+        },
+        {
+            "name": "wrong signature comes before an old timestamp",
+            "body": "{\"event\":\"post.created\",\"data\":{\"id\":42,\"title\":\"Add dark mode\",\"content\":\"Users want a dark theme.\",\"status\":\"pending\",\"board_id\":1,\"contact_id\":null,\"stage\":null}}",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "0000000000000000000000000000000000000000000000000000000000000000"
+            },
+            "now": 1763460389,
+            "expect": {
+                "valid": false,
+                "reason": "signature"
+            }
+        },
+        {
+            "name": "body that is not JSON after a valid signature",
+            "body": "{\"event\":",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "9b6cedbe9c61697f0961b1a4529bbd1a2ea7c4342997048a5f59946e8234988f"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "payload"
+            }
+        },
+        {
+            "name": "JSON array body after a valid signature",
+            "body": "[1,2]",
+            "headers": {
+                "X-FeedbackPilgrim-Event": "post.created",
+                "X-FeedbackPilgrim-Delivery": "9b2f8f4e-3c1a-4d7e-9a51-2f0c6b8d1e44",
+                "X-FeedbackPilgrim-Timestamp": "1763456789",
+                "X-FeedbackPilgrim-Signature-V2": "4633f6c260c63a4122bccfb91e4df0a94c75f54b1b27959d3672346e761821b8"
+            },
+            "now": 1763456789,
+            "expect": {
+                "valid": false,
+                "reason": "payload"
+            }
+        }
+    ]
+}

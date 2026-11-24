@@ -9,6 +9,7 @@ Gem::Specification.new do |spec|
                      "Feedback Pilgrim instance, make the widget identity hash, and verify webhooks. " \
                      "The gem uses the Ruby standard library only."
   spec.homepage    = "https://github.com/amedina068/feedbackpilgrim-ruby"
+  spec.license     = "MIT"
 
   spec.required_ruby_version = ">= 3.2"
 
@@ -18,6 +19,6 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  spec.files = Dir["lib/**/*", "sig/**/*", "README.md", "CHANGELOG.md"]
+  spec.files = Dir["lib/**/*", "sig/**/*", "README.md", "CHANGELOG.md", "LICENSE"]
   spec.require_paths = [ "lib" ]
 end

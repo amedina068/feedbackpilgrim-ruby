@@ -76,12 +76,55 @@ class FeedbackPilgrim::RetriesTest < FeedbackPilgrim::TestCase
     assert_requested stub, times: 1
   end
 
-  def test_retries_a_post_after_a_connection_error_before_the_request_was_sent
-    stub = stub_api(:post, "/tags").to_raise(Errno::ECONNREFUSED).then.to_raise(Net::OpenTimeout)
+  def test_retries_a_post_after_a_connection_error_before_the_send
+    stub = stub_api(:post, "/tags").to_raise(Errno::ECONNREFUSED).then.to_raise(SocketError)
       .then.to_return(json({ id: 1 }, status: 201))
 
-    assert_equal 1, client.tags.create(title: "feature").id
+    assert_equal 1, client(max_retries: 3).tags.create(title: "feature").id
     assert_requested stub, times: 3
+  end
+
+  def test_retries_sign_in_url_after_a_connect_timeout
+    stub = stub_api(:post, "/init").to_raise(Net::OpenTimeout).then.to_return(json(auth_url: "https://a.test/x"))
+
+    assert_equal "https://a.test/x", client.sign_in_url(email: "jane@example.com")
+    assert_requested stub, times: 2
+  end
+
+  def test_never_retries_a_post_after_another_connection_error
+    [ Errno::ECONNRESET, Errno::EHOSTUNREACH, Net::ReadTimeout ].each do |error|
+      WebMock.reset!
+      stub = stub_api(:post, "/tags").to_raise(error).then.to_return(json({ id: 1 }, status: 201))
+
+      assert_raises(FeedbackPilgrim::ConnectionError) { client.tags.create(title: "feature") }
+      assert_requested stub, times: 1
+    end
+  end
+
+  def test_retries_a_get_after_a_refused_connection_and_an_open_timeout
+    stub = stub_api(:get, "/tags").to_raise(Errno::ECONNREFUSED).then.to_raise(Net::OpenTimeout).then.to_return(paginator([]))
+
+    client.tags.list
+
+    assert_requested stub, times: 3
+  end
+
+  def test_waits_for_retry_after_on_a_server_error
+    stub_api(:get, "/posts").to_return(json({}, status: 503, headers: { "Retry-After" => "3" })).then.to_return(paginator([]))
+    client = client()
+
+    client.posts.list
+
+    assert_equal [ 3 ], client.pauses
+  end
+
+  def test_ignores_a_retry_after_that_is_not_whole_seconds_or_a_date
+    stub_api(:get, "/posts").to_return(json({}, status: 429, headers: { "Retry-After" => "-3" })).then.to_return(paginator([]))
+    client = client()
+
+    client.posts.list
+
+    assert_operator client.pauses.first, :<=, 0.5
   end
 
   def test_never_retries_a_post_after_the_server_possibly_received_it
