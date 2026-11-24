@@ -3,7 +3,26 @@ require "test_helper"
 class FeedbackPilgrim::WebhookTest < FeedbackPilgrim::TestCase
   VECTORS = JSON.parse(File.read(File.expand_path("../fixtures/webhook-signature-vectors.json", __dir__)))
   LEGACY = JSON.parse(File.read(File.expand_path("../fixtures/webhook-signature-vectors-legacy.json", __dir__)))
+  SHARED = JSON.parse(File.read(File.expand_path("../fixtures/webhook-verify-vectors.json", __dir__)))
   SECRET = VECTORS["secret"]
+
+  SHARED["cases"].each do |vector|
+    define_method("test_shared_#{vector["name"].gsub(/\W+/, "_")}") do
+      expect = vector["expect"]
+      verify = -> { FeedbackPilgrim::Webhook.verify(vector["body"], vector["headers"], secret: SHARED["secret"], now: vector["now"]) }
+
+      if expect["valid"]
+        event = verify.call
+        assert_equal expect["type"], event.type
+        assert_equal expect["timestamp"], event.timestamp
+        expect["delivery_id"] ? assert_equal(expect["delivery_id"], event.delivery_id) : assert_nil(event.delivery_id)
+        assert_equal expect["data_id"], event.data.id
+        assert_equal JSON.parse(vector["body"]), event.payload
+      else
+        assert_equal expect["reason"].to_sym, assert_raises(FeedbackPilgrim::WebhookVerificationError) { verify.call }.reason
+      end
+    end
+  end
 
   VECTORS["cases"].each do |vector|
     define_method("test_vector_#{vector["name"].gsub(/\W+/, "_")}") do
@@ -17,7 +36,7 @@ class FeedbackPilgrim::WebhookTest < FeedbackPilgrim::TestCase
 
       if vector["valid"]
         event = FeedbackPilgrim::Webhook.verify(vector["body"], headers, secret: SECRET, now:)
-        assert_equal vector["event"], event.name
+        assert_equal vector["event"], event.type
         assert_equal JSON.parse(vector["body"])["data"], event.data.to_h
       else
         error = assert_raises(FeedbackPilgrim::WebhookVerificationError) { FeedbackPilgrim::Webhook.verify(vector["body"], headers, secret: SECRET, now:) }
@@ -50,7 +69,7 @@ class FeedbackPilgrim::WebhookTest < FeedbackPilgrim::TestCase
     event = verify(delivery("post.created", timestamp: 1_000, delivery: "0b6c4c1e-8b4a-4f8e-9d55-3a1f0c2e7d10"), now: 1_000)
 
     assert_equal "0b6c4c1e-8b4a-4f8e-9d55-3a1f0c2e7d10", event.delivery_id
-    assert_equal Time.at(1_000), event.timestamp
+    assert_equal 1_000, event.timestamp
     assert_equal 42, event.data.id
   end
 
@@ -101,11 +120,17 @@ class FeedbackPilgrim::WebhookTest < FeedbackPilgrim::TestCase
     assert FeedbackPilgrim::Webhook.verify(body, headers.transform_keys(&:downcase), secret: SECRET)
   end
 
-  def test_missing_headers_fail_on_the_signature
+  def test_missing_headers_fail_on_the_timestamp
     error = assert_raises(FeedbackPilgrim::WebhookVerificationError) { FeedbackPilgrim::Webhook.verify("{}", {}, secret: SECRET) }
 
-    assert_equal :signature, error.reason
+    assert_equal :timestamp, error.reason
     refute FeedbackPilgrim::Webhook.valid?("{}", signature: nil, timestamp: nil, secret: SECRET)
+  end
+
+  def test_an_uppercase_signature_is_valid
+    body, headers = delivery("post.created", timestamp: 1_000)
+
+    assert FeedbackPilgrim::Webhook.valid?(body, signature: " #{headers[FeedbackPilgrim::Webhook::SIGNATURE].upcase} ", timestamp: "1000", secret: SECRET, now: 1_000)
   end
 
   def test_a_timestamp_that_is_not_a_number_fails_on_the_timestamp

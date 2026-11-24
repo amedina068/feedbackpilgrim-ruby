@@ -39,7 +39,19 @@ module FeedbackPilgrim
     def initialize(response, body)
       @status = response.code.to_i
       @body = body
+      @retry_after = response["Retry-After"]
       super(body.is_a?(Hash) && (body["message"] || body["error"]) || "Feedback Pilgrim returned HTTP #{status}")
+    end
+
+    # The seconds to wait before the next request, from the Retry-After header:
+    # whole seconds or an HTTP date. nil when the header is missing or has another value.
+    def retry_after
+      value = @retry_after.to_s.strip
+      return value.to_i if value.match?(/\A[0-9]+\z/)
+
+      [ (Time.httpdate(value) - Time.now).ceil, 0 ].max
+    rescue ArgumentError
+      nil
     end
   end
 
@@ -64,29 +76,21 @@ module FeedbackPilgrim
   end
 
   # A 429. Each user can make 120 requests each minute, with all the tokens of the user.
-  class RateLimitError < ApiError
-    def initialize(response, body)
-      @retry_after = response["Retry-After"]
-      super
-    end
+  class RateLimitError < ApiError; end
 
-    # The seconds to wait before the next request, from the Retry-After header.
-    def retry_after
-      return if @retry_after.nil?
-
-      Integer(@retry_after, exception: false) || [ (Time.httpdate(@retry_after) - Time.now).ceil, 0 ].max
-    rescue ArgumentError
-      nil
-    end
-  end
-
-  # The webhook delivery is not valid. reason is :signature or :timestamp.
+  # The webhook delivery is not valid. reason is :timestamp, :signature or :payload.
   class WebhookVerificationError < Error
+    MESSAGES = {
+      timestamp: "The webhook timestamp is missing, is not a Unix time, or is outside the tolerance",
+      signature: "The webhook signature is missing or does not match the body",
+      payload: "The webhook body is not a JSON object"
+    }.freeze
+
     attr_reader :reason
 
     def initialize(reason)
       @reason = reason
-      super(reason == :signature ? "The webhook signature does not match the body" : "The webhook timestamp is too old or too new")
+      super(MESSAGES.fetch(reason))
     end
   end
 end

@@ -20,3 +20,16 @@ The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The proj
 - Retries with exponential backoff and jitter. The client obeys `Retry-After`.
 - Rails integration: a Railtie that reads the credentials, and the `feedbackpilgrim:install` generator.
 - RBS signatures in `sig/`.
+- The MIT license: `LICENSE` and `spec.license = "MIT"` in the gemspec.
+
+### Changed
+
+The gem now behaves the same as the JS, PHP and Python SDKs. These changes break code that uses the gem from git:
+
+- `Webhook::Event#name` is now `Event#type`. `Event#timestamp` is now the Unix time as an Integer, not a `Time`. `Event#payload` gives the decoded body.
+- `Webhook.verify` raises the reason `:timestamp` when the timestamp header is missing or is not digits. Before, it raised `:signature`. The gem checks the timestamp format before the signature.
+- `Webhook.verify` raises the reason `:payload` when the body is not a JSON object after a valid signature. Before, it raised `JSON::ParserError` or `TypeError`.
+- The signature check makes the header lowercase. An uppercase hex signature is now valid.
+- An empty `X-FeedbackPilgrim-Delivery` header gives `delivery_id` nil.
+- The client does not retry a request that is not idempotent after a connection error. Before, it retried a refused connection and an open timeout. `Client::BEFORE_SEND` and `Client::AFTER_SEND` are now `Client::CONNECTION_ERRORS`.
+- The client waits for `Retry-After` on a retried 5xx, as on a 429. `retry_after` moved from `RateLimitError` to `ApiError`. A negative or hexadecimal `Retry-After` is ignored.

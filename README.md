@@ -20,7 +20,7 @@ gem "feedbackpilgrim", github: "amedina068/feedbackpilgrim-ruby"
 
 Then run `bundle install`.
 
-The gem is not on RubyGems yet.
+The gem is not on RubyGems. Bundler installs it from GitHub. The repository is private, so you need read access and git credentials for GitHub.
 
 ## Quick start
 
@@ -98,7 +98,7 @@ url = FeedbackPilgrim.sign_in_url(email: current_user.email, name: current_user.
 redirect_to url, allow_other_host: true
 ```
 
-If the API gets no contact email, it returns `[]`, and `sign_in_url` returns `nil`.
+If the API gets no contact email, it returns `[]`, and `sign_in_url` returns `nil`. It does not raise an error.
 
 ### Posts
 
@@ -215,12 +215,22 @@ The gem verifies the V2 signature only. The app also sends the deprecated `X-Fee
 
 ```ruby
 event = FeedbackPilgrim::Webhook.verify(request.raw_post, request.headers)
-event.name         # => "post.status_changed"
+event.type         # => "post.status_changed"
 event.data.title   # => "Export to CSV/Excel"
 event.data.stage   # => a Record with id, name and type, or nil
-event.delivery_id  # => "0b6c4c1e-8b4a-4f8e-9d55-3a1f0c2e7d10"
-event.timestamp    # => a Time
+event.payload      # => the decoded body, a Hash
+event.timestamp    # => 1763456789, the Unix time as an Integer
+event.delivery_id  # => "0b6c4c1e-8b4a-4f8e-9d55-3a1f0c2e7d10", or nil
 ```
+
+If the `X-FeedbackPilgrim-Delivery` header is missing, the verification passes and `delivery_id` is `nil`. Older instances do not send this header.
+
+`verify` does the checks in this order. The first check that fails gives `WebhookVerificationError#reason`:
+
+1. `:timestamp`: the timestamp header is missing or has a character that is not a digit.
+2. `:signature`: the signature header is missing or does not match the timestamp and the raw body.
+3. `:timestamp`: the timestamp is outside the tolerance.
+4. `:payload`: the body is not a JSON object.
 
 `valid?` takes the header values and returns `true` or `false`:
 
@@ -243,8 +253,8 @@ Rules:
 - Give the raw body. Do not parse the JSON and encode it again. The app escapes `/` as `\/` and each character that is not ASCII as `\uXXXX`, so a body encoded again has other bytes.
 - The helpers reject a timestamp that is more than 300 seconds from the current time. Give `tolerance:` to change the limit, for example `tolerance: 600`.
 - The helpers read the secret from `webhook_secret`. Give `secret:` to use another secret.
-- The helpers compare the signatures in constant time.
-- `WebhookVerificationError#reason` is `:signature` or `:timestamp`.
+- The helpers make the signature header lowercase, then compare the signatures in constant time. An uppercase hex signature is valid.
+- `WebhookVerificationError#reason` is `:timestamp`, `:signature` or `:payload`.
 - The gem does not store delivery IDs. To drop a repeated delivery, store each `delivery_id` that you processed.
 
 ## Errors
@@ -260,10 +270,10 @@ Each error is a `FeedbackPilgrim::Error`.
 | `NotFoundError` | HTTP 404. The client of the token has no record with this ID. |
 | `MethodNotAllowedError` | HTTP 405. The API does not support the operation. |
 | `ValidationError` | HTTP 422. `errors` gives the messages for each field. |
-| `RateLimitError` | HTTP 429. `retry_after` gives the seconds to wait. |
+| `RateLimitError` | HTTP 429. `retry_after` gives the seconds to wait. Each `ApiError` has `retry_after`. |
 | `ServerError` | HTTP 500 or more. |
 | `ApiError` | Another status. All the HTTP errors above are `ApiError`. |
-| `WebhookVerificationError` | A webhook delivery is not valid. `reason` is `:signature` or `:timestamp`. |
+| `WebhookVerificationError` | A webhook delivery is not valid. `reason` is `:timestamp`, `:signature` or `:payload`. |
 
 Each `ApiError` has `status`, `body` and `message`. The message comes from the `message` or the `error` field of the body.
 
@@ -286,11 +296,13 @@ The client retries a failed request `max_retries` times. The wait between attemp
 |---------|-----------------------|------|
 | 429 | Retry | Retry |
 | 5xx | Retry | No retry |
-| Connection error before the server got the request | Retry | Retry |
-| Timeout or connection error after the request was sent | Retry | No retry |
+| Connection error or timeout | Retry | No retry |
 
-- After a 429, the client waits for the `Retry-After` seconds. If `Retry-After` is more than 60 seconds, the client does not retry. It raises `RateLimitError`.
+- The default is 2 retries.
+- If a retried response has `Retry-After` (whole seconds or an HTTP date), the client waits that time. If `Retry-After` is more than 60 seconds, the client does not retry. It raises the error.
 - `contacts.upsert` is a POST, but a repeated request leaves the same contact. The client retries it like a PATCH.
+- `sign_in_url` makes a new link for each call, so the client does not retry it after a 5xx, a connection error or a timeout.
+- The JS, PHP and Python SDKs use the same retry rules.
 - Each user can make 120 requests each minute. All the tokens of the user share this limit.
 
 ## Pagination
@@ -365,8 +377,9 @@ class FeedbackpilgrimWebhooksController < ActionController::API
   def create
     event = FeedbackPilgrim::Webhook.verify(request.raw_post, request.headers)
 
-    if ProcessedDelivery.create_or_find_by(delivery_id: event.delivery_id).previously_new_record?
-      PostChangedJob.perform_later(event.name, event.data.to_h)
+    # Older instances send no delivery ID.
+    if event.delivery_id.nil? || ProcessedDelivery.create_or_find_by(delivery_id: event.delivery_id).previously_new_record?
+      PostChangedJob.perform_later(event.type, event.data.to_h)
     end
 
     head :ok
@@ -396,3 +409,7 @@ bin/rake rbs       # validates the type signatures in sig/
 The integration tests run only when `FEEDBACKPILGRIM_TEST_URL` and `FEEDBACKPILGRIM_TEST_TOKEN` are set. They only read: they list posts and tags.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for the rules. Report security problems as written in [SECURITY.md](SECURITY.md).
+
+## License
+
+MIT. Read [LICENSE](LICENSE). The Feedback Pilgrim app has its own license.

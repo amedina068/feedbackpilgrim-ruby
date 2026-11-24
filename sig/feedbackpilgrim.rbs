@@ -40,8 +40,7 @@ module FeedbackPilgrim
       def self.new: (status: Integer, body: untyped) -> Response
     end
 
-    BEFORE_SEND: Array[singleton(Exception)]
-    AFTER_SEND: Array[singleton(Exception)]
+    CONNECTION_ERRORS: Array[singleton(Exception)]
     BASE_DELAY: Float
     MAX_DELAY: Integer
     MAX_RETRY_AFTER: Integer
@@ -98,12 +97,13 @@ module FeedbackPilgrim
     TOLERANCE: Integer
 
     class Event
-      attr_reader name: String
+      attr_reader type: String?
       attr_reader data: Record
+      attr_reader payload: Hash[String, untyped]
+      attr_reader timestamp: Integer
       attr_reader delivery_id: String?
-      attr_reader timestamp: Time
 
-      def self.new: (name: String, data: Record, delivery_id: String?, timestamp: Time) -> Event
+      def self.new: (type: String?, data: Record, payload: Hash[String, untyped], timestamp: Integer, delivery_id: String?) -> Event
     end
 
     def self.valid?: (String body, signature: String?, timestamp: String | Integer | nil, ?secret: String?, ?tolerance: Integer, ?now: Time | Integer) -> bool
@@ -127,6 +127,7 @@ module FeedbackPilgrim
     def self.for: (Net::HTTPResponse response) -> ApiError
     def self.class_for: (Integer status) -> singleton(ApiError)
     def initialize: (Net::HTTPResponse response, untyped body) -> void
+    def retry_after: () -> Integer?
   end
 
   class AuthenticationError < ApiError
@@ -149,13 +150,14 @@ module FeedbackPilgrim
   end
 
   class RateLimitError < ApiError
-    def retry_after: () -> Integer?
   end
 
   class WebhookVerificationError < Error
-    attr_reader reason: :signature | :timestamp
+    MESSAGES: Hash[Symbol, String]
 
-    def initialize: (:signature | :timestamp reason) -> void
+    attr_reader reason: :signature | :timestamp | :payload
+
+    def initialize: (:signature | :timestamp | :payload reason) -> void
   end
 
   class Resource
