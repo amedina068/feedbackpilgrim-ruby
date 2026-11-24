@@ -76,11 +76,29 @@ class FeedbackPilgrim::RetriesTest < FeedbackPilgrim::TestCase
     assert_requested stub, times: 1
   end
 
-  def test_never_retries_a_post_after_a_refused_connection
-    stub = stub_api(:post, "/tags").to_raise(Errno::ECONNREFUSED).then.to_return(json({ id: 1 }, status: 201))
+  def test_retries_a_post_after_a_connection_error_before_the_send
+    stub = stub_api(:post, "/tags").to_raise(Errno::ECONNREFUSED).then.to_raise(SocketError)
+      .then.to_return(json({ id: 1 }, status: 201))
 
-    assert_raises(FeedbackPilgrim::ConnectionError) { client.tags.create(title: "feature") }
-    assert_requested stub, times: 1
+    assert_equal 1, client(max_retries: 3).tags.create(title: "feature").id
+    assert_requested stub, times: 3
+  end
+
+  def test_retries_sign_in_url_after_a_connect_timeout
+    stub = stub_api(:post, "/init").to_raise(Net::OpenTimeout).then.to_return(json(auth_url: "https://a.test/x"))
+
+    assert_equal "https://a.test/x", client.sign_in_url(email: "jane@example.com")
+    assert_requested stub, times: 2
+  end
+
+  def test_never_retries_a_post_after_another_connection_error
+    [ Errno::ECONNRESET, Errno::EHOSTUNREACH, Net::ReadTimeout ].each do |error|
+      WebMock.reset!
+      stub = stub_api(:post, "/tags").to_raise(error).then.to_return(json({ id: 1 }, status: 201))
+
+      assert_raises(FeedbackPilgrim::ConnectionError) { client.tags.create(title: "feature") }
+      assert_requested stub, times: 1
+    end
   end
 
   def test_retries_a_get_after_a_refused_connection_and_an_open_timeout

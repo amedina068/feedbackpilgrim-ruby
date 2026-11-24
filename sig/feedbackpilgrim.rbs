@@ -40,6 +40,7 @@ module FeedbackPilgrim
       def self.new: (status: Integer, body: untyped) -> Response
     end
 
+    BEFORE_SEND: Array[singleton(Exception)]
     CONNECTION_ERRORS: Array[singleton(Exception)]
     BASE_DELAY: Float
     MAX_DELAY: Integer
@@ -118,6 +119,8 @@ module FeedbackPilgrim
   end
 
   class ConnectionError < Error
+    def initialize: (?String? message, ?before_send: bool) -> void
+    def before_send?: () -> bool
   end
 
   class ApiError < Error

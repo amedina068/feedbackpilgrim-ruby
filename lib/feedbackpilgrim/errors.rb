@@ -5,7 +5,16 @@ module FeedbackPilgrim
   class ConfigurationError < Error; end
 
   # The request did not get a response: the connection failed or timed out.
-  class ConnectionError < Error; end
+  # before_send? is true for a DNS failure, a refused connection or a connect
+  # timeout. Then the server did not get the request, so a retry is safe.
+  class ConnectionError < Error
+    def initialize(message = nil, before_send: false)
+      @before_send = before_send
+      super(message)
+    end
+
+    def before_send? = @before_send
+  end
 
   # The API returned a status that is not a success.
   class ApiError < Error

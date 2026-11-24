@@ -9,9 +9,13 @@ module FeedbackPilgrim
     # The status and the parsed body of one response.
     Response = Data.define(:status, :body)
 
+    # A DNS failure, a refused connection or a connect timeout. The server did
+    # not get the request, so a retry cannot change data twice.
+    BEFORE_SEND = [ SocketError, Errno::ECONNREFUSED, Net::OpenTimeout ].freeze
+
     # The request got no response: the connection failed or timed out.
     CONNECTION_ERRORS = [
-      Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH, SocketError, Net::OpenTimeout,
+      *BEFORE_SEND, Errno::EHOSTUNREACH, Errno::ENETUNREACH,
       Net::ReadTimeout, Net::WriteTimeout, Errno::ECONNRESET, Errno::EPIPE, Errno::ETIMEDOUT, EOFError
     ].freeze
 
@@ -50,9 +54,9 @@ module FeedbackPilgrim
 
     # Sends one request to {url}/api/public/v1{path} and returns a Response.
     #
-    # Retries a 429 for each request, because the server did not do the request.
-    # Retries a 5xx, a connection error and a timeout only when the request is
-    # idempotent. Each GET, PATCH and DELETE of the API is idempotent. A POST is
+    # Retries a 429 and a connection error before the send for each request,
+    # because the server did not do the request. Retries a 5xx, another
+    # connection error and a timeout only when the request is idempotent. Each GET, PATCH and DELETE of the API is idempotent. A POST is
     # not, unless the caller says so.
     def request(method, path, query: nil, json: nil, idempotent: method != :post)
       attempt = 0
@@ -69,7 +73,10 @@ module FeedbackPilgrim
         pause delay(attempt, error.retry_after)
         retry
       rescue *CONNECTION_ERRORS => error
-        raise ConnectionError, "Feedback Pilgrim request failed: #{error.message}" unless attempt <= max_retries && idempotent
+        before_send = BEFORE_SEND.any? { |kind| error.is_a?(kind) }
+        unless attempt <= max_retries && (idempotent || before_send)
+          raise ConnectionError.new("Feedback Pilgrim request failed: #{error.message}", before_send:)
+        end
 
         pause delay(attempt)
         retry

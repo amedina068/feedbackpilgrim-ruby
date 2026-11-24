@@ -264,7 +264,7 @@ Each error is a `FeedbackPilgrim::Error`.
 | Error | Cause |
 |-------|-------|
 | `ConfigurationError` | The `url`, the `token` or a secret is missing. |
-| `ConnectionError` | The connection failed, timed out, or had a TLS error. `cause` gives the original error. |
+| `ConnectionError` | The connection failed, timed out, or had a TLS error. `cause` gives the original error. `before_send?` is true when the server did not get the request. |
 | `AuthenticationError` | HTTP 401. The token is missing or wrong, or its user is deactivated. |
 | `AuthorizationError` | HTTP 403. The REST API does not return it today. |
 | `NotFoundError` | HTTP 404. The client of the token has no record with this ID. |
@@ -296,12 +296,14 @@ The client retries a failed request `max_retries` times. The wait between attemp
 |---------|-----------------------|------|
 | 429 | Retry | Retry |
 | 5xx | Retry | No retry |
-| Connection error or timeout | Retry | No retry |
+| DNS failure, refused connection or connect timeout | Retry | Retry |
+| Read timeout, reset or other connection error | Retry | No retry |
 
 - The default is 2 retries.
 - If a retried response has `Retry-After` (whole seconds or an HTTP date), the client waits that time. If `Retry-After` is more than 60 seconds, the client does not retry. It raises the error.
 - `contacts.upsert` is a POST, but a repeated request leaves the same contact. The client retries it like a PATCH.
-- `sign_in_url` makes a new link for each call, so the client does not retry it after a 5xx, a connection error or a timeout.
+- `sign_in_url` makes a new link for each call, so the client does not retry it after a 5xx, a read timeout or a reset.
+- `ConnectionError#before_send?` is true for a DNS failure (`SocketError`), a refused connection (`Errno::ECONNREFUSED`) and a connect timeout (`Net::OpenTimeout`). The server did not get the request, so the client retries every request after these errors.
 - The JS, PHP and Python SDKs use the same retry rules.
 - Each user can make 120 requests each minute. All the tokens of the user share this limit.
 

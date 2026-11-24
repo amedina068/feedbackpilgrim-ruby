@@ -31,5 +31,6 @@ The gem now behaves the same as the JS, PHP and Python SDKs. These changes break
 - `Webhook.verify` raises the reason `:payload` when the body is not a JSON object after a valid signature. Before, it raised `JSON::ParserError` or `TypeError`.
 - The signature check makes the header lowercase. An uppercase hex signature is now valid.
 - An empty `X-FeedbackPilgrim-Delivery` header gives `delivery_id` nil.
-- The client does not retry a request that is not idempotent after a connection error. Before, it retried a refused connection and an open timeout. `Client::BEFORE_SEND` and `Client::AFTER_SEND` are now `Client::CONNECTION_ERRORS`.
+- `Client::BEFORE_SEND` has only a DNS failure (`SocketError`), a refused connection and a connect timeout (`Net::OpenTimeout`). Before, it also had an unreachable host or network. `Client::AFTER_SEND` is gone. `Client::CONNECTION_ERRORS` has all the connection errors. The client retries a request that is not idempotent only after a 429 or a `BEFORE_SEND` error.
+- `ConnectionError#before_send?` tells if the error occurred before the send.
 - The client waits for `Retry-After` on a retried 5xx, as on a 429. `retry_after` moved from `RateLimitError` to `ApiError`. A negative or hexadecimal `Retry-After` is ignored.
