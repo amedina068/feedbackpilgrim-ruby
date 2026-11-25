@@ -5,7 +5,7 @@
 
 A Ruby client for the Feedback Pilgrim API, with a Rails integration.
 
-Feedback Pilgrim is a self-hosted app for feedback, roadmaps, release notes and testimonials. You run your own instance, so each client talks to the instance URL that you give it. The gem uses the Ruby standard library only. It has no runtime dependencies and sends no telemetry.
+Feedback Pilgrim is an app for feedback, roadmaps, release notes and testimonials. Use Feedback Pilgrim Cloud or run your own instance. Each client talks to the instance URL that you give it. The gem uses the Ruby standard library only. It has no runtime dependencies and sends no telemetry.
 
 ```ruby
 post = FeedbackPilgrim.posts.create(title: "Add dark mode", content: "Please add a dark theme.")
@@ -27,12 +27,23 @@ The gem is not on RubyGems. Bundler installs it from GitHub.
 
 ## Quick start
 
+No instance yet? Start a free 14-day trial of [Feedback Pilgrim Cloud](https://app.feedbackpilgrim.com/register). No credit card is necessary.
+
 1. In your Feedback Pilgrim instance, go to **Settings → API Tokens**. Make a token.
-2. Configure the client:
+2. Configure the client. On Feedback Pilgrim Cloud, the URL is `https://app.feedbackpilgrim.com`:
 
    ```ruby
    require "feedbackpilgrim"
 
+   FeedbackPilgrim.configure do |config|
+     config.url   = "https://app.feedbackpilgrim.com"
+     config.token = ENV["FEEDBACKPILGRIM_TOKEN"]
+   end
+   ```
+
+   On a self-hosted instance, the URL is the `APP_URL` of your instance:
+
+   ```ruby
    FeedbackPilgrim.configure do |config|
      config.url   = "https://feedback.example.com"
      config.token = ENV["FEEDBACKPILGRIM_TOKEN"]
@@ -51,7 +62,7 @@ The gem is not on RubyGems. Bundler installs it from GitHub.
 
 | Setting           | Default | Environment variable              | Description |
 |-------------------|---------|-----------------------------------|-------------|
-| `url`             | none    | `FEEDBACKPILGRIM_URL`             | The URL of your instance (its `APP_URL`), for example `https://feedback.example.com`. The client adds `/api/public/v1`. |
+| `url`             | none    | `FEEDBACKPILGRIM_URL`             | The URL of your instance (its `APP_URL`). On Cloud, use `https://app.feedbackpilgrim.com`. Self-hosted example: `https://feedback.example.com`. The client adds `/api/public/v1`. |
 | `token`           | none    | `FEEDBACKPILGRIM_TOKEN`           | The API token, `<id>|<random>`. The client sends it as `Authorization: Bearer`. |
 | `identity_secret` | none    | `FEEDBACKPILGRIM_IDENTITY_SECRET` | The identity secret of the client. Only `FeedbackPilgrim.identity_hash` uses it. |
 | `webhook_secret`  | none    | `FEEDBACKPILGRIM_WEBHOOK_SECRET`  | The signing secret of your webhook. Only the webhook helpers use it. |
@@ -417,7 +428,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the rules. Report security problems 
 
 ## Related projects
 
-- [Feedback Pilgrim](https://github.com/amedina068/feedbackpilgrim): the self-hosted app that this SDK calls. It uses the AGPL-3.0.
+- [Feedback Pilgrim](https://github.com/amedina068/feedbackpilgrim): the app that this SDK calls. The self-hosted edition uses the AGPL-3.0. [Feedback Pilgrim Cloud](https://app.feedbackpilgrim.com) is the hosted edition.
 - [Documentation](https://feedbackpilgrim.com/docs): the guides for the app and the SDKs. The source is in [feedbackpilgrim-docs](https://github.com/amedina068/feedbackpilgrim-docs).
 - [SDK overview](https://feedbackpilgrim.com/docs/sdks/overview): the install steps and the features of each SDK.
 - SDKs for other languages: [TypeScript](https://github.com/amedina068/feedbackpilgrim-js), [PHP](https://github.com/amedina068/feedbackpilgrim-php), [Python](https://github.com/amedina068/feedbackpilgrim-python).
