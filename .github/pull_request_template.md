@@ -11,3 +11,4 @@ Write what the change does and why.
 - [ ] If I changed the public API, I updated `sig/feedbackpilgrim.rbs`, `README.md` and `CHANGELOG.md`.
 - [ ] The change adds no runtime dependency and no telemetry.
 - [ ] The change has no token, secret or other key.
+- [ ] The PR title follows Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:` and similar).
