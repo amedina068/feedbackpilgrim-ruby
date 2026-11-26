@@ -1,0 +1,31 @@
+# Categories for the release notes that GitHub makes from the merged pull
+# requests. A pull request goes in the first category that matches one of
+# its labels.
+changelog:
+  exclude:
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking-change
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Security
+      labels:
+        - security
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+        - github-actions
+    - title: Other
+      labels:
+        - "*"

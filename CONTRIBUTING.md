@@ -22,6 +22,22 @@ Open an issue with the bug template or the feature template. If the problem is a
 5. If you change the public API, update `sig/feedbackpilgrim.rbs`, `README.md` and `CHANGELOG.md`.
 6. Open a pull request and complete the template.
 
+## Pull request titles
+
+The title of each pull request must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). The `pr-title` check fails when the title does not follow it.
+
+Use one of these types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` or `revert`. The scope in parentheses is optional. Examples:
+
+- `feat: add the testimonials resource`
+- `fix(rails): load the config before the first request`
+- `docs: add a webhook example to the README`
+
+GitHub makes the release notes from the titles of the merged pull requests. A clear title gives a clear release note.
+
+## Triage
+
+Each new issue gets the `needs-triage` label. The maintainer reads the issue, adds a type label (for example `bug`, `enhancement` or `question`) and removes `needs-triage`.
+
 ## Rules for the code
 
 - Use the Ruby standard library. Do not add a runtime dependency.

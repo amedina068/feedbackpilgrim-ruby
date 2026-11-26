@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/amedina068/feedbackpilgrim-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/amedina068/feedbackpilgrim-ruby/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/amedina068/feedbackpilgrim-ruby/badge)](https://scorecard.dev/viewer/?uri=github.com/amedina068/feedbackpilgrim-ruby)
 
 A Ruby client for the Feedback Pilgrim API, with a Rails integration.
 
